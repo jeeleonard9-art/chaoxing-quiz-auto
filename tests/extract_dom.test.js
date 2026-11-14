@@ -44,6 +44,14 @@ function findBrowser() {
   return cands.find(c => c && fs.existsSync(c)) || null;
 }
 
+// 把本地路径转成 file:// URL。
+// 注意：Windows 路径形如 C:\a\b → file:///C:/a/b（三个斜杠）；
+// 而 POSIX 路径已经以 / 开头，再拼 file:/// 会变成四个斜杠导致页面打不开。
+function toFileUrl(p) {
+  const norm = p.replace(/\\/g, '/');
+  return norm.startsWith('/') ? 'file://' + norm : 'file:///' + norm;
+}
+
 test('从合成夹具中抽取全部题目结构', async (t) => {
   const pw = loadPlaywright();
   if (!pw) { t.skip('playwright-core 不可用（需 Node 20+），跳过 DOM 测试'); return; }
@@ -63,7 +71,7 @@ test('从合成夹具中抽取全部题目结构', async (t) => {
   try {
     const page = await browser.newPage();
     // 只放行顶层文档：任何子资源请求一律 abort，避免 file:// 下出现带主机名的路径卡住解析
-    const fileUrl = 'file:///' + FIXTURE.replace(/\\/g, '/');
+    const fileUrl = toFileUrl(FIXTURE);
     await page.route('**/*', route =>
       route.request().url() === fileUrl ? route.continue() : route.abort());
     await page.goto(fileUrl, { waitUntil: 'commit', timeout: 30000 }).catch(() => {});
