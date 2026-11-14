@@ -1,0 +1,16 @@
+# Node
+node_modules/
+npm-debug.log*
+package-lock.json.bak
+
+# 本工具的运行时产物（含作答内容，不要入库）
+questions.json
+questions.txt
+answers.json
+*.log
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
