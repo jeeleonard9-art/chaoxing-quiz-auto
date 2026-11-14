@@ -5,6 +5,11 @@
 
 > English name: **Auto Quiz Answering Skill** · 英文文档见 [README_EN.md](README_EN.md)
 
+> **关于仓库名**：GitHub 会直接丢弃仓库名中的非 ASCII 字符（纯中文名会被规范化成 `-skills`），
+> 所以仓库名固定为 `chaoxing-quiz-auto`。技能显示名为 **学习通全自动答题 skills**，
+> 英文名 **Auto Quiz Answering Skill**；克隆后目录名即 `chaoxing-quiz-auto`，
+> 与 `SKILL.md` 里的 `name` 字段一致，可直接放进任意 skills 目录。
+
 接管你**已经登录**的浏览器，把超星学习通（chaoxing.com）上的作业/测验自动做完：
 抽题 → 逐题用真实鼠标点击 + 键盘输入作答 → 逐题回读校验 → 单独点提交 → 核对逐题得分。
 

@@ -2,6 +2,13 @@
 
 > 中文名：**学习通全自动答题 skills** · [中文文档](README.md)
 
+> **About the repository name**: GitHub silently strips non-ASCII characters from
+> repository names (a purely Chinese name gets normalized to `-skills`), so the
+> repository is pinned to `chaoxing-quiz-auto`. The skill's display name is
+> **学习通全自动答题 skills** / **Auto Quiz Answering Skill**; the clone directory
+> matches the `name` field in `SKILL.md`, so it can be dropped into any skills
+> directory as-is.
+
 [![CI](https://github.com/jeeleonard9-art/chaoxing-quiz-auto/actions/workflows/ci.yml/badge.svg)](https://github.com/jeeleonard9-art/chaoxing-quiz-auto/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
