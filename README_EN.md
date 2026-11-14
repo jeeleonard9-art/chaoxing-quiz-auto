@@ -162,6 +162,21 @@ cd chaoxing-quiz-auto
 npm install
 ```
 
+## Using it with another AI assistant (e.g. Doubao)
+
+Paste this straight into Doubao (or any other assistant) once you have cloned this repo:
+
+```
+I've downloaded the "学习通全自动答题 skills" (Auto Quiz Answering Skill) from GitHub (https://github.com/jeeleonard9-art/chaoxing-quiz-auto). Please install it into your skills directory following its README (Node.js 20+ and npm install), then use it to complete this Chaoxing (超星学习通) assignment for me: take over my already-logged-in browser → extract every question and option → answer them one by one with real mouse clicks and keyboard input, reading the value back to verify each one → stop and show me the result before submitting; I will reply "submit" and only then do you click 提交 → finally verify every question with check_result.js and tell me which questions lost points, quoting the platform's own correct-answer string.
+```
+
+If that assistant can drive a browser but cannot run Node scripts, point it at
+`references/chaoxing_page_model.md` (DOM + submit flow) and `references/grading_rules.md`
+(grading semantics) and let it do the page work by hand.
+
+Before sending, make sure three things are ready: **Node.js 20+**, **the browser already
+logged in to Chaoxing**, and **the assignment URL at hand**.
+
 ## Usage
 
 | Command | What it does |

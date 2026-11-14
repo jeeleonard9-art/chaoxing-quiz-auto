@@ -145,6 +145,19 @@ cd chaoxing-quiz-auto
 npm install
 ```
 
+## 在别的 AI 助手上使用（含豆包）
+
+把下面这段直接发给豆包或其他 AI 助手即可（前提是已按上面的方式下载本仓库）：
+
+```
+我已从 GitHub 下载了「学习通全自动答题 skills」（https://github.com/jeeleonard9-art/chaoxing-quiz-auto），请先按它的 README 把技能装到你的技能目录（需 Node.js 20+ 并执行 npm install），然后用它帮我完成这份超星学习通作业：接管我已登录的浏览器 → 抽取全部题目与选项 → 逐题用真实鼠标点击与键盘输入作答、每题回读校验 → 作答完成后先把结果交给我确认，我回复「提交」后你再点提交 → 最后用 check_result.js 逐题核对得分，并把失分题连同平台给出的标准答案原文一起告诉我。
+```
+
+若该助手能操作浏览器但跑不了 Node 脚本，就让它读文档手动驱动：
+`references/chaoxing_page_model.md`（页面结构与提交流程）+ `references/grading_rules.md`（判分口径）。
+
+发送前请确认三件事：**Node.js 20+**、**浏览器里已登录学习通**、**作业页链接在手**。
+
 ## 用法
 
 | 命令 | 作用 |
