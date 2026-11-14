@@ -5,6 +5,15 @@
 const CDP_URL = process.env.CDP_URL || process.env.CHAOXING_CDP_URL || 'http://127.0.0.1:9222';
 
 function requirePlaywright() {
+  // playwright-core 1.6x 在 Node < 20 上是 process.exit(1) 直接退出（try/catch 拦不住），
+  // 所以先看版本再 require，给出可读的提示。
+  const major = +process.versions.node.split('.')[0];
+  if (major < 20) {
+    throw new Error(
+      `Node.js 版本过低：当前 ${process.versions.node}，playwright-core 1.6x 要求 Node 20+。\n` +
+      '请升级 Node 后重试。'
+    );
+  }
   try {
     return require('playwright-core');
   } catch (e) {

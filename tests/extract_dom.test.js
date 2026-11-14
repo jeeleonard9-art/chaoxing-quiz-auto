@@ -8,10 +8,21 @@ const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 
-const { chromium } = require('playwright-core');
 const { extractQuestions, editorSpec } = require('../scripts/lib');
 
 const FIXTURE = path.join(__dirname, 'fixtures', 'mock_work.html');
+
+// playwright-core 1.6x 要求 Node 20+，且在低版本上是 process.exit(1) 直接退出，
+// 因此必须先看版本再 require，否则 try/catch 拦不住、整条流水线会红。
+function loadPlaywright() {
+  const major = +process.versions.node.split('.')[0];
+  if (major < 20) return null;
+  try {
+    return require('playwright-core');
+  } catch (e) {
+    return null;
+  }
+}
 
 function findBrowser() {
   const home = os.homedir();
@@ -30,11 +41,13 @@ function findBrowser() {
 }
 
 test('从真实页面存档中抽取全部题目结构', async (t) => {
+  const pw = loadPlaywright();
+  if (!pw) { t.skip('playwright-core 不可用（需 Node 20+），跳过 DOM 测试'); return; }
   const exe = findBrowser();
   if (!exe) { t.skip('本机未找到 Edge/Chrome，跳过 DOM 测试'); return; }
   if (!fs.existsSync(FIXTURE)) { t.skip('缺少测试夹具'); return; }
 
-  const browser = await chromium.launch({ executablePath: exe, headless: true });
+  const browser = await pw.chromium.launch({ executablePath: exe, headless: true });
   try {
     const page = await browser.newPage();
     await page.route('**/*', route => {

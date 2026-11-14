@@ -125,7 +125,7 @@ macOS/Linux but **not validated on a real machine**. Issues welcome.
 
 ### Requirements
 
-- Node.js 18+ (CI covers 18 / 20 / 22 on ubuntu / macos / windows)
+- Node.js 20+ (playwright-core 1.6x requires 20+; CI covers 20 / 22 / 24 on ubuntu / macos / windows)
 - Exactly one dependency: `playwright-core` (CDP client only — no browser download)
 - Edge or Chrome installed locally, **already logged in** to Chaoxing
 
@@ -281,7 +281,7 @@ chaoxing-quiz-auto/
 
 ## What CI actually proves
 
-The `CI` workflow runs on **ubuntu / macos / windows × Node 18 / 20 / 22**:
+The `CI` workflow runs on **ubuntu / macos / windows × Node 20 / 22 / 24**:
 
 | Check | What it covers |
 |---|---|

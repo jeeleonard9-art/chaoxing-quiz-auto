@@ -25,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **参考文档**：DOM 结构与提交流程、判分口径踩坑清单、答案表格式、故障排查、
   Servlet 章节完整参考答案。
 - 中英双语 README、安装脚本（`install.sh` / `install.ps1`）、CI 工作流
-  （ubuntu / macos / windows × Node 18 / 20 / 22）。
+  （ubuntu / macos / windows × Node 20 / 22 / 24）。
 
 ### Known limitations
 

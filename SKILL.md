@@ -26,7 +26,7 @@ agent_created: true
 
 ## 依赖
 
-Node.js 18+ 与 `playwright-core`（仅用于连接已开调试端口的浏览器，不下载浏览器内核）：
+Node.js 20+ 与 `playwright-core`（仅用于连接已开调试端口的浏览器，不下载浏览器内核）：
 
 ```bash
 npm install

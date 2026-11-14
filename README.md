@@ -109,7 +109,7 @@ node scripts/run_all.js --answers answers.json --submit
 
 ### 平台要求
 
-- Node.js 18+（CI 覆盖 18 / 20 / 22 × ubuntu / macos / windows）
+- Node.js 20+（playwright-core 1.6x 要求 20 以上；CI 覆盖 20 / 22 / 24 × ubuntu / macos / windows）
 - 唯一一个依赖：`playwright-core`（只做 CDP 连接，不下载浏览器内核）
 - 需要本机已安装 Edge 或 Chrome，且**已经登录**学习通
 
@@ -255,7 +255,7 @@ chaoxing-quiz-auto/
 
 ## CI 到底验证了什么
 
-`CI` 工作流在 **ubuntu / macos / windows × Node 18 / 20 / 22** 九种组合上跑：
+`CI` 工作流在 **ubuntu / macos / windows × Node 20 / 22 / 24** 九种组合上跑：
 
 | 验证项 | 说明 |
 |---|---|
