@@ -69,6 +69,34 @@ So submitting is deliberately a **separate step**, guarded twice:
 
 **If you only want “filled in but not submitted”**, stop after `answer_work.js`.
 
+## ⚠️ Why the tool clicks 暂时保存 (Save draft) before 提交 (Submit)
+
+A real user on a different machine hit a platform-side problem: **clicking 提交 did
+nothing** — `/work/validate` returned 302, and the page neither showed the confirmation
+dialog nor sent the submit request; the URL never moved.
+
+Root cause is a defect in some versions of the Chaoxing page itself:
+`submitValidate()` only continues to `ready2Submit()` when `/work/validate` returns
+`status` 2 or 3 — there is no `else` branch for a normal 302 → status 0 response.
+
+**Click 暂时保存 once, then 提交** — and the confirmation dialog appears normally and
+the chain completes:
+`submitCheckTimes → submitWork → confirmSubmitWork → POST addStudentWorkNewWeb`.
+
+So `submit_work.js` defaults to:
+
+```
+integrity pre-check → 暂时保存 (save draft) → click 提交 → handle the confirm dialog → report
+```
+
+That solves two things at once: it sidesteps the 302 branch, and it **persists a draft
+first**, so a risk-control trigger or a flaky page cannot wipe the whole attempt —
+the draft lives on the server and can be recovered.
+
+Two more guards are built in: if the dialog mentions “未做完 / 未作答 / 还有…”, the tool
+**refuses to confirm** and exits (code 4); and if no dialog appears after clicking 提交,
+it falls back to calling the platform's own `ready2Submit()`.
+
 ## ⚠️ Second trap: how fill-in-the-blank is graded
 
 Chaoxing **normalizes whitespace and bracket positions, but requires the answer
@@ -151,6 +179,12 @@ Windows:
 powershell -ExecutionPolicy Bypass -File install.ps1
 ```
 
+**No git on the machine? Fine** — the installer detects the missing git and falls back to
+downloading and unpacking the GitHub zip. You can also grab the zip yourself
+(<https://github.com/jeeleonard9-art/chaoxing-quiz-auto/archive/refs/heads/main.zip>),
+rename the extracted folder to `chaoxing-quiz-auto`, drop it into the skills directory and
+run `npm install` there.
+
 Restart the session afterwards. The model triggers the skill based on the
 triggers listed in `description`.
 
@@ -181,10 +215,10 @@ logged in to Chaoxing**, and **the assignment URL at hand**.
 
 | Command | What it does |
 |---|---|
-| `node scripts/takeover_browser.js` | close the browser and restart it with a CDP port (login state preserved) |
+| `node scripts/takeover_browser.js` | close the browser and restart it with a CDP port (login state preserved); `--dry-run` detects only |
 | `node scripts/extract_questions.js [--url <link>]` | extract every question, option and input slot |
 | `node scripts/answer_work.js --answers answers.json` | answer question by question with the mouse, then cross-check (no submit) |
-| `node scripts/submit_work.js` | integrity pre-check → click 提交 → handle the confirmation dialog |
+| `node scripts/submit_work.js` | integrity pre-check → **暂时保存 (save draft)** → click 提交 → handle the confirmation dialog |
 | `node scripts/check_result.js` | diff “my answer” vs “correct answer” for every question |
 | `node scripts/run_all.js --answers answers.json [--submit]` | one shot: extract → answer → (submit) → verify |
 
@@ -198,6 +232,8 @@ Common flags:
 | `--keep` | do not clear the form; answer on top of the current state |
 | `--browser edge\|chrome` | pick the browser, default auto-detect |
 | `--port <port>` | CDP port, default 9222 |
+| `--dry-run` | only detect the browser and profile dir — close nothing, take over nothing |
+| `--dry-run` | only detect the browser and profile dir — close nothing, take over nothing |
 
 ### Typical run
 
@@ -319,6 +355,16 @@ machine can answer — that is what the *untested* cells in the matrix mean.
   submission is a separate command
 - The temporary symlink lives in the system temp dir; deleting the link does not
   touch the real profile (never delete it recursively)
+
+### Who actually does the answering
+
+This tool **only takes over clicking and typing** — the answers themselves still have
+to be derived (or at least approved) by the user, because `answers.json` is produced
+from the question content by the user or their AI assistant.
+
+If a course is an **end-of-term assessment**, whether to let a tool submit on your
+behalf is your call; using it for chapter homework, practice runs or re-doing wrong
+questions has no such issue. Say this out loud when you hand the work back.
 
 ## License
 

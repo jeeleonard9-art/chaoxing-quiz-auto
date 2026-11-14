@@ -5,7 +5,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const {
-  distribute, normalizeText, sameAnswer, validateAnswers, parseArgs
+  distribute, normalizeText, sameAnswer, splitPoints, answerHit, validateAnswers, parseArgs
 } = require('../scripts/answers_util');
 
 test('distribute: 空位足够时原样保留', () => {
@@ -46,8 +46,30 @@ test('sameAnswer: 平台判分口径（空白/括号等价，文本内容须一�
   assert.ok(!sameAnswer('转发', '转发(forward)'));
 });
 
-test('validateAnswers: 合法答案表无错误', () => {
-  const errs = validateAnswers({ choice: { '1': 'C', '20': 'false' }, fill: { '40': ['服务器'] } });
+test('splitPoints: 把同一空里的多个答案点拆开', () => {
+  assert.deepStrictEqual(splitPoints('sendRedirect ();其他 Web 应用'), ['sendRedirect ()', '其他 Web 应用']);
+  assert.deepStrictEqual(splitPoints('getContextPath ();getRealPath ()'), ['getContextPath ()', 'getRealPath ()']);
+  assert.deepStrictEqual(splitPoints('getContextPath、getRealPath'), ['getContextPath', 'getRealPath']);
+  assert.deepStrictEqual(splitPoints('单一答案'), ['单一答案']);
+  assert.deepStrictEqual(splitPoints(''), []);
+});
+
+test('answerHit: 命中任一答案点即算对（修掉满分题被误报成不一致）', () => {
+  // 平台把两个答案点写进同一空的标准答案文本里，我的答案命中其中一个 → 满分
+  assert.ok(answerHit('sendRedirect', 'sendRedirect ();其他 Web 应用'));
+  // 我的答案用、分隔多个点，逐点命中
+  assert.ok(answerHit('getContextPath、getRealPath', 'getContextPath ();getRealPath ()'));
+  // 空格与括号归一化后相等
+  assert.ok(answerHit('init()', 'init ()'));
+  assert.ok(answerHit('service()', 'service ()'));
+  // 文本不一致 → 不算命中（标准答案是「转发(forward)」时，「转发」判 0 分）
+  assert.ok(!answerHit('转发', '转发(forward)'));
+  assert.ok(!answerHit('重定向', '重定向(redirect)'));
+  // 实测：标准答案含两个点时，只答一个点平台同样给满分 → 仍算命中
+  assert.ok(answerHit('getContextPath', 'getContextPath ();getRealPath ()'));
+});
+
+test('validateAnswers: 合法答案表无错误', () => {  const errs = validateAnswers({ choice: { '1': 'C', '20': 'false' }, fill: { '40': ['服务器'] } });
   assert.deepStrictEqual(errs, []);
 });
 

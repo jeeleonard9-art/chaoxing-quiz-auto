@@ -52,9 +52,32 @@ node scripts/run_all.js --answers answers.json --submit
 
 所以工具的设计是**把提交单独拆成一步**，并在下单前做两件事：
 `answer_work.js` 末尾的**全量复核**（不一致就打印 ✗ 并以退出码 2 结束），
-以及 `submit_work.js` 开头��**完整性自检**（有任何一题没答案就直接拒绝提交）。
+以及 `submit_work.js` 开头的**完整性自检**（有任何一题没答案就直接拒绝提交）。
 
 **如果你只想要"填好但不交"**，跑 `answer_work.js` 就停，不要跑 `submit_work.js`。
+
+## ⚠️ 提交前为什么先点「暂时保存」
+
+真实用户在另一台电脑上跑这套流程时踩到过一个平台侧的问题：**直接点「提交」毫无反应**——
+`/work/validate` 返回 302，页面既不弹确认框也不发提交请求，URL 也不跳转。
+
+根因是部分版本学习通页面自身的缺陷：`submitValidate()` 只在 `/work/validate` 返回 `status` 为 2/3 时
+才继续走 `ready2Submit()`，正常返回（302 → status 0）没有 else 分支。
+
+**先点一次「暂时保存」再点「提交」，确认弹窗就会正常弹出并走完**
+`submitCheckTimes → submitWork → confirmSubmitWork → POST addStudentWorkNewWeb`。
+
+所以 `submit_work.js` 的默认顺序是：
+
+```
+完整性自检 → 暂时保存（草稿落库）→ 点「提交」→ 处理「确认提交？」弹窗 → 报告结果
+```
+
+这同时解决了两件事：绕开平台那个 302 分支；以及**先落一次草稿**，避免学习通风控或偶发 bug
+让整份作答被清空——草稿在服务器上，页面出问题也能恢复。
+
+脚本另有两道护栏：确认框里若出现「未做完 / 未作答 / 还有…」字样，**拒绝点击确认**并退出（退出码 4）；
+点「提交」后确认框没出现时，自动调用平台自身的 `ready2Submit()` 兜底。
 
 ## ⚠️ 第二个坑：填空题的判分口径
 
@@ -135,6 +158,10 @@ Windows：
 powershell -ExecutionPolicy Bypass -File install.ps1
 ```
 
+**本机没有 git 也没关系**：安装脚本会检测到没有 git 时自动改用 GitHub zip 包下载并解压。
+也可以直接下载 zip（<https://github.com/jeeleonard9-art/chaoxing-quiz-auto/archive/refs/heads/main.zip>），
+解压后把目录改名成 `chaoxing-quiz-auto` 放进 skills 目录，再在该目录执行 `npm install`。
+
 重启会话后生效。模型会根据 `description` 里的触发条件自行调用。
 
 ### 方式二：纯命令行
@@ -162,10 +189,10 @@ npm install
 
 | 命令 | 作用 |
 |---|---|
-| `node scripts/takeover_browser.js` | 关闭浏览器并以 CDP 端口重启（保留登录态） |
+| `node scripts/takeover_browser.js` | 关闭浏览器并以 CDP 端口重启（保留登录态）；`--dry-run` 可只探测不接管 |
 | `node scripts/extract_questions.js [--url <链接>]` | 抽取全部题目、选项、作答位置 |
 | `node scripts/answer_work.js --answers answers.json` | 逐题鼠标作答 + 复核（不提交） |
-| `node scripts/submit_work.js` | 完整性自检 → 点提交 → 处理确认弹窗 |
+| `node scripts/submit_work.js` | 完整性自检 → **暂时保存** → 点提交 → 处理确认弹窗 |
 | `node scripts/check_result.js` | 逐题比对「我的答案 / 正确答案 / 得分」 |
 | `node scripts/run_all.js --answers answers.json [--submit]` | 一键：抽取 → 作答 → （提交）→ 核验 |
 
@@ -179,6 +206,8 @@ npm install
 | `--keep` | 不清空表单，直接在现有状态上作答 |
 | `--browser edge\|chrome` | 指定浏览器，默认自动探测 |
 | `--port <端口>` | CDP 端口，默认 9222 |
+| `--dry-run` | 只探测浏览器与配置目录，不关闭也不接管（先确认再动手） |
+| `--dry-run` | 只探测浏览器与配置目录，不关闭也不接管（先确认再动手） |
 
 ### 典型流程
 
@@ -288,6 +317,14 @@ chaoxing-quiz-auto/
 - 不抓取、不上传课程内容或账号信息到任何第三方
 - 提交与否由人决定：`answer_work.js` 跑完即止，提交是独立的一步
 - 临时符号链接建在系统临时目录，删链接不影响真实 profile（不要对它递归删除）
+
+### 关于「谁来作答」
+
+这个工具**只负责代劳点鼠标和敲富文本框**，题目的答案仍需要使用者自己推导或认可——
+答案表 `answers.json` 是由使用者（或 AI 助手）根据题目内容生成的。
+
+如果某门课是**期末考核性质**，是否用工具代交由使用者自行权衡；用它做章节作业、
+刷题、错题重做这类自我检验的场景则没有这个问题。交付时请把这一点说明清楚。
 
 ## License
 

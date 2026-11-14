@@ -23,6 +23,8 @@ agent_created: true
 2. **提交之后不再操作该答卷**（重复进入会返回"作答状态异常！"）。
 3. 不猜测答案。先抽取全部题目与选项，基于学科知识推导；措辞不确定的填空/简答题，
    优先参考该课程已提交作业「作业详情」页里的标准答案措辞（见 `references/grading_rules.md`）。
+4. **本工具只做"代劳点鼠标与敲字"，答案仍需使用者自己推导或认可**。
+   如果某门课是期末考核性质，是否用它代交由使用者自行权衡——要在交付时明确说明这一点。
 
 ## 依赖
 
@@ -87,12 +89,25 @@ node scripts/answer_work.js --answers answers.json
 ### 第 5 步：提交（单独一步）
 
 ```bash
-node scripts/submit_work.js
+node scripts/submit_work.js          # 默认先暂时保存再提交
+node scripts/submit_work.js --no-save  # 跳过暂时保存
 ```
 
-先做完整性自检（有题未作答则拒绝提交），再：鼠标点击「提交」→ 等待 `/work/validate`
-→ 处理「确认提交？」弹窗（点 `#popok`）→ 等待 POST `/mooc-ans/work/addStudentWorkNewWeb`
-→ 跳转到 `work/prompt` 页显示得分。
+脚本顺序：**完整性自检 → 暂时保存（草稿落库）→ 点「提交」→ 处理「确认提交？」弹窗 → 报告结果**。
+
+**为什么必须先「暂时保存」**（真实用户踩出来的）：
+
+1. 学习通有风控与偶发 bug，先落一次草稿可避免「页面异常 / 弹窗没反应」时答案被清空；
+2. 实测某些版本平台页面的 `submitValidate()` 只在 `/work/validate` 返回 `status` 为 2/3 时才继续，
+   正常返回（302 → status 0）没有 else 分支 —— 直接点「提交」会**毫无反应**：
+   没有弹窗、没有 POST、URL 不跳转。先保存再提交，确认弹窗才会正常弹出并走完
+   `submitCheckTimes → submitWork → confirmSubmitWork → POST addStudentWorkNewWeb`。
+
+脚本还内置两道护栏：
+
+- 确认框里若出现「未做完 / 未作答 / 还有…」字样，**拒绝点击确认**并退出（退出码 4），截图存 `submit_blocked.png`；
+- 若点「提交」后确认框没出现，自动调用平台自身的 `ready2Submit()` 兜底（它内部会做完整性校验、
+  `syncAnswer` 同步富文本并弹框），再由脚本点 `#popok`。
 
 ### 第 6 步：核验结果
 
@@ -101,6 +116,8 @@ node scripts/check_result.js
 ```
 
 打开 `work/view` 作业详情页，逐题对比「我的答案 / 正确答案 / 得分」，输出不一致题目与总分。
+平台有时会把同一空的多个答案点写进标准答案文本（如 `sendRedirect ();其他 Web 应用`），
+脚本按「命中任一答案点即算对」的口径比对，不会把满分题误报成不一致。
 若有失分题：同一次作答无法修改（会提示"作答状态异常！"），需从课程作业列表重新发起一次作答，
 用详情页给出的标准答案措辞修正后重答。
 

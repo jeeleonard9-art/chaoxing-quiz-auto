@@ -32,10 +32,21 @@
 
 | 现象 | 原因 | 处理 |
 |---|---|---|
+| **点了「提交」毫无反应**：没有弹窗、没有 POST、URL 不跳转 | 部分版本平台页面的 `submitValidate()` 只在 `/work/validate` 返回 `status` 2/3 时才继续，正常返回（302 → status 0）没有 else 分支 | **先点「暂时保存」再点「提交」**（`submit_work.js` 默认就是这么做的）。脚本还会在确认框没出现时自动调用平台自身的 `ready2Submit()` 兜底 |
+| 弹窗提示"还有未做完的" | 有题没答案 | 脚本会**拒绝点确认**并退出（退出码 4），截图存 `submit_blocked.png`；回到 `answer_work.js` 补齐后重试 |
 | 弹窗提示"账号发生异常，请重新登录" | `validate` 返回 status=1 | 重新登录学习通后重试 |
 | 弹窗提示需要验证码 | `validate` 返回 status=2 | 人工过一次验证码，本工具不处理验证码 |
 | 提交后跳到 `work/prompt` 显示分数 | 正常 | 这是提交成功页；点「查看详情」可看逐题批改 |
 | 提交接口 200 但分数没变 | 提交的是上一次的草稿 | 确认 `answer_work.js` 复核全绿后再提交 |
+
+## 安装
+
+| 现象 | 原因 | 处理 |
+|---|---|---|
+| 本机没有 git | `install.sh` / `install.ps1` 原本依赖 git | v1.1 起安装脚本**自带 zip 包兜底**：没有 git 会自动下载 GitHub zip 解压；也可以直接下载 zip 手动放进 skills 目录再 `npm install` |
+| `npm install` 后仍提示缺少 playwright-core | 没在技能目录里执行 | `cd` 到技能目录再 `npm install` |
+| Node 版本过低 | playwright-core 1.6x 要求 Node 20+，低于 20 是 `process.exit(1)` 直接退出 | 升级 Node；脚本会先判版本并给出可读提示 |
+| `npm test` 里 DOM 测试失败 | 环境里起不来无头浏览器 | v1.1 起该用例在起浏览器失败时**降级为 skip**，不再让流水线变红 |
 
 ## 判分
 

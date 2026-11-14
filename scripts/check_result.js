@@ -3,7 +3,7 @@
 'use strict';
 
 const { connect, findPage } = require('./lib');
-const { sameAnswer, parseArgs } = require('./answers_util');
+const { sameAnswer, answerHit, parseArgs } = require('./answers_util');
 
 const args = parseArgs();
 
@@ -45,7 +45,10 @@ const args = parseArgs();
   let bad = 0, sum = 0;
   res.out.forEach(q => {
     sum += q.score;
-    if (!sameAnswer(q.mine, q.right)) {
+    // 按平台判分口径比对：平台可能把多个答案点写进同一空的标准答案文本，
+    // 只要我的每个点都能命中其中一个点，就算对（否则会把满分题误报成不一致）。
+    const ok = answerHit(q.mine, q.right) || sameAnswer(q.mine, q.right);
+    if (!ok) {
       bad++;
       console.log(`\n✗ 第${q.num}题  得分 ${q.score}\n   题干: ${q.title}\n   我的答案: [${q.mine}]\n   正确答案: [${q.right}]`);
       if (q.expl) console.log(`   解析: ${q.expl}`);
@@ -57,6 +60,8 @@ const args = parseArgs();
   if (bad > 0) {
     console.log('\n修正建议：把上面的「正确答案」措辞更新到 answers.json，');
     console.log('再从课程作业列表重新发起一次作答（同一次作答无法修改，重复进入会提示"作答状态异常！"）。');
+  } else if (res.out.length) {
+    console.log('\n全部答案与平台标准答案一致 ✓');
   }
   await browser.close();
 })().catch(e => { console.error('ERR', e.message || e); process.exit(1); });

@@ -19,36 +19,45 @@ const WANT = (args.browser || 'auto').toLowerCase();
 
 function home(p) { return path.join(os.homedir(), p); }
 
+// process.platform 的值（win32/darwin/linux）与配置表键（win/darwin/linux）不一致，
+// 必须显式映射，否则在 Windows 上永远取不到浏览器路径。
+function platformKey() {
+  if (process.platform === 'win32') return 'win';
+  if (process.platform === 'darwin') return 'darwin';
+  return 'linux';
+}
+const PK = platformKey();
+
 const BROWSERS = {
   edge: {
     win: [
-      path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
       path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+      path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
       path.join(process.env.LOCALAPPDATA || '', 'Microsoft', 'Edge', 'Application', 'msedge.exe')
     ],
     darwin: ['/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge'],
-    linux: ['/usr/bin/microsoft-edge', '/usr/bin/microsoft-edge-stable'],
+    linux: ['/usr/bin/microsoft-edge', '/usr/bin/microsoft-edge-stable', '/opt/microsoft/msedge/msedge'],
     profile: {
       win: path.join(process.env.LOCALAPPDATA || '', 'Microsoft', 'Edge', 'User Data'),
       darwin: home('Library/Application Support/Microsoft Edge'),
       linux: home('.config/microsoft-edge')
     },
-    proc: { win: 'msedge', darwin: 'Microsoft Edge', linux: 'microsoft-edge' }
+    proc: { win: 'msedge.exe', darwin: 'Microsoft Edge', linux: 'microsoft-edge' }
   },
   chrome: {
     win: [
-      path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Google', 'Chrome', 'Application', 'chrome.exe'),
       path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+      path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Google', 'Chrome', 'Application', 'chrome.exe'),
       path.join(process.env.LOCALAPPDATA || '', 'Google', 'Chrome', 'Application', 'chrome.exe')
     ],
     darwin: ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'],
-    linux: ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser'],
+    linux: ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser', '/snap/bin/chromium'],
     profile: {
       win: path.join(process.env.LOCALAPPDATA || '', 'Google', 'Chrome', 'User Data'),
       darwin: home('Library/Application Support/Google/Chrome'),
       linux: home('.config/google-chrome')
     },
-    proc: { win: 'chrome', darwin: 'Google Chrome', linux: 'google-chrome' }
+    proc: { win: 'chrome.exe', darwin: 'Google Chrome', linux: 'google-chrome' }
   }
 };
 
@@ -57,23 +66,30 @@ function pickBrowser() {
   for (const key of order) {
     const b = BROWSERS[key];
     if (!b) continue;
-    for (const exe of b[process.platform] || []) {
+    for (const exe of b[PK] || []) {
       if (exe && fs.existsSync(exe)) return { key, exe, def: b };
     }
   }
-  throw new Error('未找到可用的 Edge/Chrome，请手动用 --browser 指定');
+  throw new Error(
+    `未找到可用的 Edge/Chrome（platform=${process.platform} → ${PK}）。\n` +
+    '可用 --browser 指定，或用 --exe 直接给可执行文件路径。'
+  );
 }
 
 function closeBrowser(def) {
+  const proc = def.proc[PK];
   try {
-    if (process.platform === 'win32') {
-      execSync(`taskkill /IM ${def.proc.win}.exe /F`, { stdio: 'ignore' });
+    if (PK === 'win') {
+      // 不依赖 PATH：用 System32 下的完整路径调用 taskkill
+      const taskkill = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'taskkill.exe');
+      const bin = fs.existsSync(taskkill) ? taskkill : 'taskkill';
+      execSync(`"${bin}" /IM ${proc} /F`, { stdio: 'ignore' });
     } else {
-      execSync(`pkill -f "${def.proc[process.platform]}"`, { stdio: 'ignore' });
+      execSync(`pkill -f "${proc}"`, { stdio: 'ignore' });
     }
-    console.log(`[1/4] 已关闭 ${def.proc[process.platform]}`);
+    console.log(`[1/4] 已关闭 ${proc}`);
   } catch (e) {
-    console.log(`[1/4] ${def.proc[process.platform]} 未在运行`);
+    console.log(`[1/4] ${proc} 未在运行（或无法结束，继续）`);
   }
 }
 
@@ -89,7 +105,7 @@ function ensureLink(target, linkPath) {
       }
     }
   } catch (e) { /* 不存在则忽略 */ }
-  const type = process.platform === 'win32' ? 'junction' : 'dir';
+  const type = PK === 'win' ? 'junction' : 'dir';
   fs.symlinkSync(target, linkPath, type);
   console.log(`[2/4] 已建链接: ${linkPath} -> ${target}`);
 }
@@ -107,11 +123,17 @@ async function waitCdp(port, tries = 25) {
 
 (async () => {
   const { key, exe, def } = pickBrowser();
-  const profileDir = def.profile[process.platform];
+  const profileDir = def.profile[PK];
   const linkPath = path.join(os.tmpdir(), `wb-${key}-ud`);
 
   console.log(`浏览器: ${key} (${exe})`);
+  console.log(`平台键: ${process.platform} → ${PK}`);
   console.log(`配置目录: ${profileDir}`);
+
+  if (args['dry-run']) {
+    console.log('\n[dry-run] 只探测不接管。确认无误后去掉 --dry-run 重新执行。');
+    return;
+  }
 
   if (!args['keep-open']) closeBrowser(def);
   ensureLink(profileDir, linkPath);
