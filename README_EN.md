@@ -16,9 +16,8 @@ Take over the browser you are **already logged into** and complete a Chaoxing
 (超星学习通 / `chaoxing.com`) homework or quiz end to end:
 
 ```
-take over browser (CDP) → extract questions → write answer sheet
-→ answer question by question with real mouse & keyboard → verify each answer
-→ submit as a separate step → grade-check every question
+take over browser (CDP) → extract questions → Agent derives the answers itself
+→ answer question by question with real mouse & keyboard → save draft → submit
 ```
 
 ## What problem it solves
@@ -40,16 +39,24 @@ real options, types into the real editor, then reads the value back from the
 platform and retries once if a click did not land. So it survives async
 rendering and never silently leaves a question blank.
 
-## Measured results
+## Division of responsibility
 
-| Scenario | Result |
+**Working out the answers and producing `answers.json` is done by the agent that
+invokes this skill, inside the workflow itself.** What this skill provides is the
+mechanics — browser takeover, question extraction, mouse-simulated answering,
+submission. Reading, reasoning and writing the answers are the agent's job.
+
+The agent's 5-step loop:
+
+| Step | Action |
 |---|---|
-| "Java Web Programming" — Chapter 3 Servlet homework | 57 questions (19 single-choice + 20 true/false + 18 fill-in), answered by real mouse clicks; automated cross-check found **0 discrepancies** |
-| Platform score | 98.2 / 100 — the only lost point was fill-in #51, whose standard answer is `转发(forward)` while `转发` was typed (see below) |
+| 1 | `node scripts/takeover_browser.js` — take over the already-logged-in browser |
+| 2 | `node scripts/extract_questions.js` — produce `questions.json` and `questions.txt` |
+| 3 | Agent reads every question and option, **derives the answers itself** and writes `answers.json` (`node scripts/answers_util.js init` gives you a skeleton first) |
+| 4 | `node scripts/answer_work.js --answers answers.json` — real mouse clicks / keyboard input, read-back verification |
+| 5 | `node scripts/submit_work.js` — integrity pre-check → **暂时保存 (save draft)** → click 提交 → confirm dialog (**end of task**) |
 
-That 98.2 was the most valuable output of the whole run: it **measured Chaoxing's
-grading rules**, and they are now written down in `references/grading_rules.md`,
-so the same trap is not stepped on twice.
+> After step 5 the workflow ends. **No review, no grading check, no detail page, no answer recap.**
 
 ## ⚠️ Read this first: submitting is irreversible
 
@@ -71,22 +78,23 @@ So submitting is deliberately a **separate step**, guarded twice:
 
 ## ⚠️ Why the tool clicks 暂时保存 (Save draft) before 提交 (Submit)
 
-A real user on a different machine hit a platform-side problem: **clicking 提交 did
-nothing** — `/work/validate` returned 302, and the page neither showed the confirmation
-dialog nor sent the submit request; the URL never moved.
+A platform-side problem has been observed: **clicking 提交 does nothing** —
+`/work/validate` returns 302, and the page neither shows the confirmation
+dialog nor sends the submit request; the URL never moves.
 
 Root cause is a defect in some versions of the Chaoxing page itself:
-`submitValidate()` only continues to `ready2Submit()` when `/work/validate` returns
-`status` 2 or 3 — there is no `else` branch for a normal 302 → status 0 response.
+`submitValidate()` only continues to `ready2Submit()` when `/work/validate`
+returns `status` 2 or 3 — there is no `else` branch for a normal 302 → status 0
+response.
 
-**Click 暂时保存 once, then 提交** — and the confirmation dialog appears normally and
-the chain completes:
+**Click 暂时保存 once, then 提交** — and the confirmation dialog appears normally
+and the chain completes:
 `submitCheckTimes → submitWork → confirmSubmitWork → POST addStudentWorkNewWeb`.
 
 So `submit_work.js` defaults to:
 
 ```
-integrity pre-check → 暂时保存 (save draft) → click 提交 → handle the confirm dialog → report
+integrity pre-check → 暂时保存 (save draft) → click 提交 → handle the confirm dialog → done
 ```
 
 That solves two things at once: it sidesteps the 302 branch, and it **persists a draft
@@ -97,7 +105,7 @@ Two more guards are built in: if the dialog mentions “未做完 / 未作答 / 
 **refuses to confirm** and exits (code 4); and if no dialog appears after clicking 提交,
 it falls back to calling the platform's own `ready2Submit()`.
 
-## ⚠️ Second trap: how fill-in-the-blank is graded
+## ⚠️ How fill-in-the-blank is graded
 
 Chaoxing **normalizes whitespace and bracket positions, but requires the answer
 text itself to match the standard answer**:
@@ -111,8 +119,7 @@ text itself to match the standard answer**:
 
 In other words the canonical form keeps the **Chinese term plus the English
 parenthetical**. Typing only the Chinese term is graded wrong.
-`check_result.js` prints the platform's own “correct answer” string for every
-question after submission — copy it verbatim on the next attempt.
+More general rules live in `references/grading_rules.md`.
 
 ## Compatibility
 
@@ -142,7 +149,7 @@ field. Other runtimes usually ignore unknown fields; delete the line if yours is
 
 | Platform | Browser takeover | Answering | Status |
 |---|---|---|---|
-| Windows 10/11 + Edge | ✅ tested | ✅ tested | fully working (2026-11-14, Edge 157) |
+| Windows 10/11 + Edge | ✅ tested | ✅ tested | fully working |
 | Windows + Chrome | ✅ same code path | untested | — |
 | macOS | ✅ implemented | untested | see `references/troubleshooting.md` |
 | Linux | ✅ implemented | untested | see `references/troubleshooting.md` |
@@ -201,7 +208,7 @@ npm install
 Paste this straight into Doubao (or any other assistant) once you have cloned this repo:
 
 ```
-I've downloaded the "学习通全自动答题 skills" (Auto Quiz Answering Skill) from GitHub (https://github.com/jeeleonard9-art/chaoxing-quiz-auto). Please install it into your skills directory following its README (Node.js 20+ and npm install), then use it to complete this Chaoxing (超星学习通) assignment for me: take over my already-logged-in browser → extract every question and option → answer them one by one with real mouse clicks and keyboard input, reading the value back to verify each one → stop and show me the result before submitting; I will reply "submit" and only then do you click 提交 → finally verify every question with check_result.js and tell me which questions lost points, quoting the platform's own correct-answer string.
+我已从 GitHub 下载了「学习通全自动答题 skills」(https://github.com/jeeleonard9-art/chaoxing-quiz-auto)，请先阅读其 SKILL.md 并按说明安装依赖，然后立即进入工作流帮我完成这份超星学习通作业：接管我已登录的浏览器 → 抽取全部题目与选项 → 由你自行推理出所有题目的正确答案并按格式生成 answers.json → 逐题使用真实鼠标点击与键盘输入完成作答并回读校验 → 全部填完校验无误后，先点击「暂时保存」，再点击「提交」并确认提交作业。提交完成后任务即彻底结束，不需要做任何得分核对、错题复盘或答案归纳。
 ```
 
 If that assistant can drive a browser but cannot run Node scripts, point it at
@@ -217,10 +224,10 @@ logged in to Chaoxing**, and **the assignment URL at hand**.
 |---|---|
 | `node scripts/takeover_browser.js` | close the browser and restart it with a CDP port (login state preserved); `--dry-run` detects only |
 | `node scripts/extract_questions.js [--url <link>]` | extract every question, option and input slot |
+| `node scripts/answers_util.js init` | build an `answers.json` skeleton from `questions.json` |
 | `node scripts/answer_work.js --answers answers.json` | answer question by question with the mouse, then cross-check (no submit) |
-| `node scripts/submit_work.js` | integrity pre-check → **暂时保存 (save draft)** → click 提交 → handle the confirmation dialog |
-| `node scripts/check_result.js` | diff “my answer” vs “correct answer” for every question |
-| `node scripts/run_all.js --answers answers.json [--submit]` | one shot: extract → answer → (submit) → verify |
+| `node scripts/submit_work.js` | integrity pre-check → **暂时保存 (save draft)** → click 提交 → handle the confirmation dialog (end of task) |
+| `node scripts/run_all.js --answers answers.json [--submit]` | one shot: extract → answer → (submit) |
 
 Common flags:
 
@@ -233,25 +240,24 @@ Common flags:
 | `--browser edge\|chrome` | pick the browser, default auto-detect |
 | `--port <port>` | CDP port, default 9222 |
 | `--dry-run` | only detect the browser and profile dir — close nothing, take over nothing |
-| `--dry-run` | only detect the browser and profile dir — close nothing, take over nothing |
 
 ### Typical run
 
 ```bash
 node scripts/takeover_browser.js
 node scripts/extract_questions.js              # → questions.json / questions.txt
-# write answers.json from the extracted content (an AI agent can do this)
+node scripts/answers_util.js init               # → answers.json skeleton
+# the agent reads the questions, derives the answers and fills in answers.json
 node scripts/answer_work.js --answers answers.json   # stop unless the cross-check is green
-node scripts/submit_work.js                     # submit
-node scripts/check_result.js                    # grade-check every question
+node scripts/submit_work.js                     # save draft → submit (task ends)
 ```
 
 ### Answer sheet format
 
 ```json
 {
-  "choice": { "1": "C", "2": "B", "20": "false", "21": "false" },
-  "fill":   { "40": ["服务器", "Servlet 容器"], "47": ["getWriter"] }
+  "choice": { "1": "C", "2": "ABD", "3": "true" },
+  "fill":   { "4": ["示例第一空", "示例第二空"] }
 }
 ```
 
@@ -293,15 +299,10 @@ the same → **cookies and login state survive**, and previously open tabs are r
 
 `submitValidate()` → `GET /work/validate` → `ready2Submit()` verifies every
 question is non-empty → `workPop("确认提交？")` → click `#popok` →
-`confirmSubmitWork()` POSTs → lands on `work/prompt` with the score.
+`confirmSubmitWork()` POSTs → lands on `work/prompt`.
 
 The two gates in front of it: the cross-check in `answer_work.js` (exit code 2 on
 mismatch) and the integrity pre-check in `submit_work.js` (exit code 3 on a gap).
-
-### Grade-checking: diff the detail page
-
-After submitting, `work/view` shows “my answer / correct answer / explanation /
-score” for every question — diff them to find exactly what went wrong.
 
 ## Layout
 
@@ -314,18 +315,16 @@ chaoxing-quiz-auto/
 ├── scripts/
 │   ├── takeover_browser.js       # browser takeover (cross-platform)
 │   ├── lib.js                    # CDP, question model, form IO, mouse helpers
-│   ├── answers_util.js           # pure functions: slot distribution, normalization
+│   ├── answers_util.js           # pure functions + `init` answer-sheet skeleton
 │   ├── extract_questions.js
 │   ├── answer_work.js            # answer + cross-check
-│   ├── submit_work.js
-│   ├── check_result.js
+│   ├── submit_work.js            # save draft → submit (end of task)
 │   └── run_all.js
 ├── references/
 │   ├── chaoxing_page_model.md    # DOM, answer storage, submit flow
-│   ├── grading_rules.md          # grading semantics and pitfalls
+│   ├── grading_rules.md          # general grading semantics
 │   ├── answer_format.md
-│   ├── troubleshooting.md
-│   └── servlet_chapter3_answer_key.md
+│   └── troubleshooting.md
 ├── examples/answers.example.json
 └── tests/                        # unit tests (node --test)
 ```
@@ -337,8 +336,8 @@ The `CI` workflow runs on **ubuntu / macos / windows × Node 20 / 22 / 24**:
 | Check | What it covers |
 |---|---|
 | Syntax | `node --check` on every `scripts/*.js` and `tests/*.js` |
-| Unit tests | 9 cases: slot distribution, text normalization, answer-sheet validation, arg parsing |
-| DOM test | runs `extractQuestions` against a sanitized snapshot of a real homework page: 57 questions, type distribution, option letters, editor-iframe index mapping (auto-skips when no browser is installed) |
+| Unit tests | 7 cases: slot distribution, answer-sheet validation, arg parsing |
+| DOM test | runs `extractQuestions` against a **purely synthetic fixture** (5 placeholder questions: single-choice / multiple-choice / true-false / fill-in / short-answer): counts, type distribution, option letters, editor-to-iframe mapping (auto-skips when no browser is installed) |
 | Skill spec | `SKILL.md` frontmatter must contain `name` and `description` |
 
 **What CI cannot prove**: it never touches a real browser or a real student
@@ -351,20 +350,11 @@ machine can answer — that is what the *untested* cells in the matrix mean.
 - Acts **only in the user's own browser and their own Chaoxing account**
 - Never bypasses a captcha — if the platform asks for one, it stops and reports
 - Never uploads course content or account data anywhere
-- The human decides about submitting: `answer_work.js` stops on its own,
-  submission is a separate command
+- The repository contains **no real course questions or answers**; the test
+  fixture is synthetic placeholder content
+- Submission is the end of the task — nothing is reviewed afterwards
 - The temporary symlink lives in the system temp dir; deleting the link does not
   touch the real profile (never delete it recursively)
-
-### Who actually does the answering
-
-This tool **only takes over clicking and typing** — the answers themselves still have
-to be derived (or at least approved) by the user, because `answers.json` is produced
-from the question content by the user or their AI assistant.
-
-If a course is an **end-of-term assessment**, whether to let a tool submit on your
-behalf is your call; using it for chapter homework, practice runs or re-doing wrong
-questions has no such issue. Say this out loud when you hand the work back.
 
 ## License
 

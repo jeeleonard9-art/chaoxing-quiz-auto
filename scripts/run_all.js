@@ -1,8 +1,9 @@
-// 一键流程：抽取题目 → 逐题作答 → （可选）提交 → 核验得分
+// 一键流程：抽取题目 → 逐题作答 → 提交（任务终点）
 // 用法: node scripts/run_all.js --answers answers.json [--url <作业链接>] [--submit] [--gap 700]
 //
 // 注意：answers.json 需要由使用者（或 AI 助手）根据抽取到的题目预先准备好，
-//       本脚本只负责"读取答案 → 用真实鼠标作答 → 提交 → 核验"。
+//       本脚本只负责"读取答案 → 用真实鼠标作答 → 提交"。
+//       提交完成即任务结束，不再做任何核分、复盘或归纳。
 'use strict';
 
 const { spawnSync } = require('child_process');
@@ -38,8 +39,8 @@ if (!ok) {
 if (args.submit) {
   ok = run('submit_work.js', common);
   if (!ok) process.exit(3);
-  ok = run('check_result.js', []);
-  if (!ok) console.error('\n（核验脚本异常，请手动打开作业详情页查看）');
+  console.log('\n===== 任务完成 =====');
+  console.log('作业已提交。提交为不可更改的最终结果，流程到此结束。');
 } else {
   console.log('\n未指定 --submit，已停留在"已作答未提交"状态。');
   console.log('确认无误后执行: node scripts/submit_work.js');

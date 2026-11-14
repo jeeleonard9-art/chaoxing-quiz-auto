@@ -16,48 +16,6 @@ function distribute(answers, slots) {
   return head;
 }
 
-/** 归一化文本，用于比对"我的答案"与"正确答案"（忽略空白与全半角括号、顿号逗号） */
-function normalizeText(s) {
-  return (s || '')
-    .replace(/[\s　]/g, '')
-    .replace(/[（）()]/g, '')
-    .replace(/[，,、；;]/g, '');
-}
-
-/** 判断两份答案是否等价 */
-function sameAnswer(a, b) {
-  return normalizeText(a) === normalizeText(b);
-}
-
-/**
- * 把一段文本拆成"答案点"。超星会把同一空里的多个答案点写进标准答案文本，
- * 例如「sendRedirect ();其他 Web 应用」实际是两个点。
- */
-function splitPoints(s) {
-  return String(s == null ? '' : s)
-    .split(/[;；,，、]/)
-    .map(x => x.trim())
-    .filter(Boolean);
-}
-
-/**
- * 按平台的判分口径比对：把两边都拆成答案点，**我的答案命中其中任意一个点即算对**。
- *
- * 依据实测：
- *   - 标准答案「sendRedirect ();其他 Web 应用」（两个点），我答「sendRedirect」→ 满分 1.8
- *   - 标准答案「getContextPath ();getRealPath ()」，我答「getContextPath、getRealPath」→ 满分 1.8
- *   - 标准答案「转发(forward)」，我答「转发」→ 0 分
- *
- * 注意判定用的是「归一化后相等」而不是「包含」：
- * 「转发」并不包含「转发(forward)」，平台判 0 分。
- */
-function answerHit(mine, right) {
-  const mp = splitPoints(mine);
-  const rp = splitPoints(right);
-  if (!mp.length || !rp.length) return false;
-  return mp.some(m => rp.some(r => normalizeText(m) === normalizeText(r)));
-}
-
 /**
  * 校验答案表结构。
  * @param {object} answers { choice:{}, fill:{} }
@@ -103,4 +61,51 @@ function parseArgs(argv = process.argv.slice(2)) {
   return out;
 }
 
-module.exports = { distribute, normalizeText, sameAnswer, splitPoints, answerHit, validateAnswers, parseArgs };
+module.exports = { distribute, validateAnswers, parseArgs };
+
+// ---------------------------------------------------------------------------
+// CLI：node scripts/answers_util.js init [--questions questions.json] [--out answers.json]
+// 从 questions.json 生成一份 answers.json 骨架，供 Agent 逐题填入推理结果。
+// ---------------------------------------------------------------------------
+if (require.main === module) {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const args = parseArgs(process.argv.slice(2));
+  const cmd = args._[0];
+
+  if (cmd !== 'init') {
+    console.log('用法: node scripts/answers_util.js init [--questions questions.json] [--out answers.json]');
+    process.exit(1);
+  }
+
+  const qFile = path.resolve(args.questions || 'questions.json');
+  const outFile = path.resolve(args.out || 'answers.json');
+  if (!fs.existsSync(qFile)) {
+    console.error(`找不到题目文件: ${qFile}\n请先运行: node scripts/extract_questions.js`);
+    process.exit(1);
+  }
+
+  const data = JSON.parse(fs.readFileSync(qFile, 'utf8'));
+  const questions = data.questions || data;
+  const choice = {};
+  const fill = {};
+
+  for (const q of questions) {
+    const num = String(q.num);
+    if (q.mode === 'choice') {
+      choice[num] = '';
+    } else {
+      const n = (q.blanks && q.blanks.length) || q.slots || 1;
+      fill[num] = new Array(n).fill('');
+    }
+  }
+
+  const skeleton = { choice, fill };
+  fs.writeFileSync(outFile, JSON.stringify(skeleton, null, 2), 'utf8');
+
+  console.log(`已生成答案表骨架: ${outFile}`);
+  console.log(`  客观题 ${Object.keys(choice).length} 道，填空/主观题 ${Object.keys(fill).length} 道`);
+  console.log('请阅读 questions.txt，逐题推理后把答案填入 answers.json 的对应位置。');
+  console.log('格式要求见 references/answer_format.md，判分口径见 references/grading_rules.md。');
+  process.exit(0);
+}

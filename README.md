@@ -10,11 +10,10 @@
 > 英文名 **Auto Quiz Answering Skill**；克隆后目录名即 `chaoxing-quiz-auto`，
 > 与 `SKILL.md` 里的 `name` 字段一致，可直接放进任意 skills 目录。
 
-接管你**已经登录**的浏览器，把超星学习通（chaoxing.com）上的作业/测验自动做完：
-抽题 → 逐题用真实鼠标点击 + 键盘输入作答 → 逐题回读校验 → 单独点提交 → 核对逐题得分。
+接管你**已经登录**的浏览器，把超星学习通（chaoxing.com）上的作业/测验自动做完。
 
 ```
-接管浏览器(CDP) → 抽取题目与选项 → 写答案表 → 逐题鼠标作答+校验 → 提交 → 逐题核验得分
+接管浏览器(CDP) → 抽取题目与选项 → Agent 自行推理生成答案表 → 逐题鼠标作答+回读校验 → 暂时保存 → 提交
 ```
 
 ## 它解决什么问题
@@ -33,15 +32,22 @@ node scripts/run_all.js --answers answers.json --submit
 平台的写入值确认命中，错了自动重试一次。所以它既能扛住页面的异步渲染，也不会因为
 一次点击落空而悄悄留下空白题。
 
-## 实测效果
+## 职责划分
 
-| 场景 | 结果 |
+**题目的解答推理与 `answers.json` 的生成，全部由调用本 Skill 的 Agent 自己在工作流中完成。**
+本 Skill 提供的是浏览器接管、题目抽取、鼠标仿真作答、提交这条流水线的机械能力。
+
+Agent 在标准工作流里的 5 步闭环：
+
+| 步骤 | 动作 |
 |---|---|
-| 《Java Web 程序设计》第3章 Servlet 作业 | 57 题（19 单选 + 20 判断 + 18 填空），逐题鼠标作答，程序复核 **0 处偏差** |
-| 平台判分 | 98.2 / 100 —— 唯一失分是第 51 题填空，标准答案是 `转发(forward)` 而填了 `转发`（见下文） |
+| Step 1 | `node scripts/takeover_browser.js` —— 接管已登录的浏览器 |
+| Step 2 | `node scripts/extract_questions.js` —— 生成 `questions.json` 与 `questions.txt` |
+| Step 3 | Agent 阅读全部题目与选项，**自行推理**出答案并写出 `answers.json`（可先 `node scripts/answers_util.js init` 生成骨架） |
+| Step 4 | `node scripts/answer_work.js --answers answers.json` —— 逐题鼠标点击/键盘输入并回读校验 |
+| Step 5 | `node scripts/submit_work.js` —— 完整性自检 → **暂时保存** → 点提交 → 确认弹窗（**任务终点**） |
 
-那次 98.2 分反而是最有价值的产出：**它把超星的判分口径实测清楚了**，
-并写进了 `references/grading_rules.md`，下次同类作业不会再踩同一个坑。
+> Step 5 完成后流程即刻结束，**不做任何复盘、核分、查看详情页或答案归纳**。
 
 ## ⚠️ 先读这一条：提交是不可逆的
 
@@ -58,7 +64,7 @@ node scripts/run_all.js --answers answers.json --submit
 
 ## ⚠️ 提交前为什么先点「暂时保存」
 
-真实用户在另一台电脑上跑这套流程时踩到过一个平台侧的问题：**直接点「提交」毫无反应**——
+实测遇到过平台侧的问题：**直接点「提交」毫无反应**——
 `/work/validate` 返回 302，页面既不弹确认框也不发提交请求，URL 也不跳转。
 
 根因是部分版本学习通页面自身的缺陷：`submitValidate()` 只在 `/work/validate` 返回 `status` 为 2/3 时
@@ -70,7 +76,7 @@ node scripts/run_all.js --answers answers.json --submit
 所以 `submit_work.js` 的默认顺序是：
 
 ```
-完整性自检 → 暂时保存（草稿落库）→ 点「提交」→ 处理「确认提交？」弹窗 → 报告结果
+完整性自检 → 暂时保存（草稿落库）→ 点「提交」→ 处理「确认提交？」弹窗 → 任务完成
 ```
 
 这同时解决了两件事：绕开平台那个 302 分支；以及**先落一次草稿**，避免学习通风控或偶发 bug
@@ -79,7 +85,7 @@ node scripts/run_all.js --answers answers.json --submit
 脚本另有两道护栏：确认框里若出现「未做完 / 未作答 / 还有…」字样，**拒绝点击确认**并退出（退出码 4）；
 点「提交」后确认框没出现时，自动调用平台自身的 `ready2Submit()` 兜底。
 
-## ⚠️ 第二个坑：填空题的判分口径
+## ⚠️ 填空题的判分口径
 
 超星填空题判分时**会归一化空白与括号位置，但要求答案文本本身与标准答案一致**：
 
@@ -91,7 +97,7 @@ node scripts/run_all.js --answers answers.json --submit
 | **`转发(forward)` / `重定向(redirect)`** | **`转发` / `重定向`** | ❌ **0 分** |
 
 也就是说，**中文 + 英文括注**的写法（`转发(forward)`）才是标准答案，只写中文会被判错。
-`check_result.js` 会在提交后把每题的「正确答案」原文打出来，照着改就能拿满分。
+更多通用规律见 `references/grading_rules.md`。
 
 ## 兼容性
 
@@ -121,7 +127,7 @@ node scripts/run_all.js --answers answers.json --submit
 
 | 平台 | 浏览器接管 | 作答 | 状态 |
 |---|---|---|---|
-| Windows 10/11 + Edge | ✅ 实测 | ✅ 实测 | 完整跑通（2026-11-14，Edge 157） |
+| Windows 10/11 + Edge | ✅ 实测 | ✅ 实测 | 完整跑通 |
 | Windows + Chrome | ✅ 同一套逻辑 | 未实测 | — |
 | macOS | ✅ 已实现 | 未实测 | 见 `references/troubleshooting.md` |
 | Linux | ✅ 已实现 | 未实测 | 见 `references/troubleshooting.md` |
@@ -177,7 +183,7 @@ npm install
 把下面这段直接发给豆包或其他 AI 助手即可（前提是已按上面的方式下载本仓库）：
 
 ```
-我已从 GitHub 下载了「学习通全自动答题 skills」（https://github.com/jeeleonard9-art/chaoxing-quiz-auto），请先按它的 README 把技能装到你的技能目录（需 Node.js 20+ 并执行 npm install），然后用它帮我完成这份超星学习通作业：接管我已登录的浏览器 → 抽取全部题目与选项 → 逐题用真实鼠标点击与键盘输入作答、每题回读校验 → 作答完成后先把结果交给我确认，我回复「提交」后你再点提交 → 最后用 check_result.js 逐题核对得分，并把失分题连同平台给出的标准答案原文一起告诉我。
+我已从 GitHub 下载了「学习通全自动答题 skills」(https://github.com/jeeleonard9-art/chaoxing-quiz-auto)，请先阅读其 SKILL.md 并按说明安装依赖，然后立即进入工作流帮我完成这份超星学习通作业：接管我已登录的浏览器 → 抽取全部题目与选项 → 由你自行推理出所有题目的正确答案并按格式生成 answers.json → 逐题使用真实鼠标点击与键盘输入完成作答并回读校验 → 全部填完校验无误后，先点击「暂时保存」，再点击「提交」并确认提交作业。提交完成后任务即彻底结束，不需要做任何得分核对、错题复盘或答案归纳。
 ```
 
 若该助手能操作浏览器但跑不了 Node 脚本，就让它读文档手动驱动：
@@ -191,10 +197,10 @@ npm install
 |---|---|
 | `node scripts/takeover_browser.js` | 关闭浏览器并以 CDP 端口重启（保留登录态）；`--dry-run` 可只探测不接管 |
 | `node scripts/extract_questions.js [--url <链接>]` | 抽取全部题目、选项、作答位置 |
-| `node scripts/answer_work.js --answers answers.json` | 逐题鼠标作答 + 复核（不提交） |
-| `node scripts/submit_work.js` | 完整性自检 → **暂时保存** → 点提交 → 处理确认弹窗 |
-| `node scripts/check_result.js` | 逐题比对「我的答案 / 正确答案 / 得分」 |
-| `node scripts/run_all.js --answers answers.json [--submit]` | 一键：抽取 → 作答 → （提交）→ 核验 |
+| `node scripts/answers_util.js init` | 按 `questions.json` 生成 `answers.json` 骨架，供逐题填入 |
+| `node scripts/answer_work.js --answers answers.json` | 逐题鼠标作答 + 全量复核（不提交） |
+| `node scripts/submit_work.js` | 完整性自检 → **暂时保存** → 点提交 → 处理确认弹窗（任务终点） |
+| `node scripts/run_all.js --answers answers.json [--submit]` | 一键：抽取 → 作答 → （提交） |
 
 常用参数：
 
@@ -207,25 +213,24 @@ npm install
 | `--browser edge\|chrome` | 指定浏览器，默认自动探测 |
 | `--port <端口>` | CDP 端口，默认 9222 |
 | `--dry-run` | 只探测浏览器与配置目录，不关闭也不接管（先确认再动手） |
-| `--dry-run` | 只探测浏览器与配置目录，不关闭也不接管（先确认再动手） |
 
 ### 典型流程
 
 ```bash
 node scripts/takeover_browser.js
 node scripts/extract_questions.js              # → questions.json / questions.txt
-# 按题目内容写 answers.json（AI 助手可直接生成）
+node scripts/answers_util.js init               # → answers.json 骨架
+# Agent 阅读题目自行推理，逐题填入 answers.json
 node scripts/answer_work.js --answers answers.json   # 复核全绿再继续
-node scripts/submit_work.js                     # 提交
-node scripts/check_result.js                    # 逐题核验
+node scripts/submit_work.js                     # 暂时保存 → 提交（任务结束）
 ```
 
 ### 答案表格式
 
 ```json
 {
-  "choice": { "1": "C", "2": "B", "20": "false", "21": "false" },
-  "fill":   { "40": ["服务器", "Servlet 容器"], "47": ["getWriter"] }
+  "choice": { "1": "C", "2": "ABD", "3": "true" },
+  "fill":   { "4": ["示例第一空", "示例第二空"] }
 }
 ```
 
@@ -260,13 +265,9 @@ Chromium 136+ 起，`--remote-debugging-port` **不能再用在默认用户数�
 ### 提交：单独一步 + 两道闸
 
 `submitValidate()` → `GET /work/validate` → `ready2Submit()` 逐题校验非空
-→ `workPop("确认提交？")` → 点 `#popok` → `confirmSubmitWork()` POST 落库 → 跳 `work/prompt` 显示分数。
+→ `workPop("确认提交？")` → 点 `#popok` → `confirmSubmitWork()` POST 落库 → 跳 `work/prompt`。
 
 前置两道闸：`answer_work.js` 的复核（不一致退出码 2）与 `submit_work.js` 的完整性自检（缺题退出码 3）。
-
-### 核验：`work/view` 详情页逐题比对
-
-提交后进详情页，每题都有「我的答案 / 正确答案 / 答案解析 / 得分」，直接 diff 就能定位失分题。
 
 ## 目录结构
 
@@ -279,18 +280,16 @@ chaoxing-quiz-auto/
 ├── scripts/
 │   ├── takeover_browser.js       # 浏览器接管（跨平台）
 │   ├── lib.js                    # CDP 连接、题目结构读取、表单读写、鼠标模拟
-│   ├── answers_util.js           # 纯函数：答案分配、文本归一化、参数解析
+│   ├── answers_util.js           # 纯函数 + `init` 生成答案表骨架
 │   ├── extract_questions.js      # 抽题
-│   ├── answer_work.js            # 逐题作答 + 复核
-│   ├── submit_work.js            # 提交
-│   ├── check_result.js           # 逐题核验
+│   ├── answer_work.js            # 逐题作答 + 全量复核
+│   ├── submit_work.js            # 暂时保存 → 提交（任务终点）
 │   └── run_all.js                # 一键流程
 ├── references/
 │   ├── chaoxing_page_model.md    # DOM 结构、答案存储、提交流程
-│   ├── grading_rules.md          # 判分口径与踩坑清单
+│   ├── grading_rules.md          # 判分口径与题干还原的通用规律
 │   ├── answer_format.md          # 答案表格式
-│   ├── troubleshooting.md        # 故障排查
-│   └── servlet_chapter3_answer_key.md
+│   └── troubleshooting.md        # 故障排查
 ├── examples/answers.example.json
 └── tests/                        # 单元测试（node --test）
 ```
@@ -302,8 +301,8 @@ chaoxing-quiz-auto/
 | 验证项 | 说明 |
 |---|---|
 | 脚本语法 | 所有 `scripts/*.js`、`tests/*.js` 过 `node --check` |
-| 单元测试 | 答案分配、文本归一化、答案表校验、参数解析 共 9 个用例 |
-| DOM 测试 | 用脱敏后的真实页面存档跑 `extractQuestions`：57 题、题型分布、选项字母、编辑器 iframe 序号一一校验（无浏览器时自动跳过） |
+| 单元测试 | 答案分配、答案表校验、参数解析 共 7 个用例 |
+| DOM 测试 | 用**纯合成夹具**（5 道占位题：单选/多选/判断/填空/简答）跑 `extractQuestions`：题量、题型分布、选项字母、编辑器与 iframe 序号一一校验（无浏览器时自动跳过） |
 | SKILL.md 规范 | frontmatter 必须含 `name` 与 `description` |
 
 **CI 不能证明的**：它不连真实浏览器、不碰真实学习通账号。
@@ -315,16 +314,9 @@ chaoxing-quiz-auto/
 - 只在**用户自己的浏览器和自己的学习通账号**里作答
 - 不绕过验证码（平台要验证码就停下报错，交人工）
 - 不抓取、不上传课程内容或账号信息到任何第三方
-- 提交与否由人决定：`answer_work.js` 跑完即止，提交是独立的一步
+- 仓库里**不包含任何真实课程的题目或答案**，测试夹具是合成占位内容
+- 提交是任务的终点，提交后不再做任何复盘操作
 - 临时符号链接建在系统临时目录，删链接不影响真实 profile（不要对它递归删除）
-
-### 关于「谁来作答」
-
-这个工具**只负责代劳点鼠标和敲富文本框**，题目的答案仍需要使用者自己推导或认可——
-答案表 `answers.json` 是由使用者（或 AI 助手）根据题目内容生成的。
-
-如果某门课是**期末考核性质**，是否用工具代交由使用者自行权衡；用它做章节作业、
-刷题、错题重做这类自我检验的场景则没有这个问题。交付时请把这一点说明清楚。
 
 ## License
 

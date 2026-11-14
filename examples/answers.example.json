@@ -1,21 +1,15 @@
 {
-  "_comment": "答案表示例：单选/多选用选项字母，判断题用 true(对)/false(错)，填空题按第1空、第2空顺序给数组。",
+  "_comment": "答案表示例（与任何具体课程无关的占位示例）。单选/多选用选项字母，判断题用 true(对)/false(错)，填空题按第1空、第2空顺序给数组。实际使用时请用 node scripts/answers_util.js init 生成骨架后逐题填入。",
 
   "choice": {
     "1": "C",
-    "2": "B",
-    "3": "B",
-    "20": "false",
-    "21": "false",
-    "22": "true",
-    "40": "A"
+    "2": "ABD",
+    "3": "true",
+    "4": "false"
   },
 
   "fill": {
-    "41": ["Servlet", "HttpServlet"],
-    "42": ["init()", "service()"],
-    "50": ["@WebServlet"],
-    "51": ["转发(forward)", "重定向(redirect)", "重定向(redirect)"],
-    "55": ["getContextPath、getRealPath"]
+    "5": ["示例第一空", "示例第二空"],
+    "6": ["示例答案甲、示例答案乙"]
   }
 }

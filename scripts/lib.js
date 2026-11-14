@@ -50,7 +50,7 @@ async function findPage(ctx, patterns = ['/work/dowork']) {
  * @param url  超星作业 URL；为空则只找已打开的页面
  */
 async function openWorkPage(ctx, url) {
-  const existing = await findPage(ctx, ['/work/dowork', '/work/view']);
+  const existing = await findPage(ctx, ['/work/dowork']);
   if (existing) return existing;
   if (!url) throw new Error('未找到已打开的超星作业页，请用 --url 传入作业链接');
   const page = await ctx.newPage();
@@ -279,7 +279,11 @@ async function extractQuestions(page) {
         num: parseInt(num, 10), qid, type,
         typeName: TYPE_NAME[type] || `主观题(type=${type})`,
         mode: options.length ? 'choice' : (slots > 0 ? 'blank' : (isSubjective ? 'subjective' : 'unknown')),
-        title, slots, options, blanks
+        title,
+        // slots = 该题需要填的答案个数：填空题取平台的 tiankongsize，主观题固定为 1
+        slots: count,
+        platformSlots: slots,
+        options, blanks
       });
     });
     return out;
@@ -287,7 +291,7 @@ async function extractQuestions(page) {
 
   data.forEach(q => {
     if (/标签/.test(q.title) || /和标签/.test(q.title) || /\("|'\("/.test(q.title)) {
-      q.note = '题干中有尖括号标签被服务端剥离（如 <servlet-mapping>），需按上下文还原';
+      q.note = '题干中有尖括号标签被服务端剥离，需按上下文与同套题的行文习惯还原';
     }
   });
   return data;

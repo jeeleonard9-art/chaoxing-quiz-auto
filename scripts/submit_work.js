@@ -155,6 +155,7 @@ const args = parseArgs();
   console.log('页面摘要:', state.head);
   console.log('\n网络记录:');
   net.forEach(n => console.log(JSON.stringify(n).slice(0, 400)));
-  console.log('\n提交完成。可执行 node scripts/check_result.js 核验逐题得分。');
+  console.log('\n===== 任务完成 =====');
+  console.log('作业已提交。提交为不可更改的最终结果，流程到此结束。');
   await browser.close();
 })().catch(e => { console.error('ERR', e.message || e); process.exit(1); });

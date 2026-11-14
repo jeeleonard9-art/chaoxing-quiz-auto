@@ -4,6 +4,44 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] — 2026-11-14
+
+把「一次具体作业的调试记录」与「通用 Agent Skill 工作流」彻底分开：
+仓库不再包含任何真实课程数据，提交之后不再做任何复盘动作。
+
+### Removed
+
+- **删除 `references/servlet_chapter3_answer_key.md`**：仓库不再收录任何具体课程的题目与答案。
+- **删除 `scripts/check_result.js`**：提交后核分、对比「我的答案 / 正确答案」、报告失分题、
+  「去作业列表重新作答」这一整套提交后复盘流程全部移除。
+  作业一旦提交就是不可更改的最终结果，复盘没有意义。
+- 随之移除 `answers_util.js` 中仅服务于该流程的纯比对函数
+  （`normalizeText` / `sameAnswer` / `splitPoints` / `answerHit`）及其单元测试。
+- `package.json` 移除 `check` 脚本；`lib.js` 移除对作业详情页 `/work/view` 的回退查找。
+- README（中英）、SKILL.md、`references/chaoxing_page_model.md`、`references/grading_rules.md`、
+  `references/troubleshooting.md` 中所有"提交后核分 / 对比标准答案 / 报告失分题 / 重新作答"的描述。
+
+### Changed
+
+- **测试夹具换成纯合成内容**：`tests/fixtures/mock_work.html` 不再使用真实作业页存档，
+  改为手工构造的 5 道占位题（单选 / 多选 / 判断 / 填空 / 简答 各 1 道，题干为
+  "示例单选题" 之类的通用文本），体积从 168KB 降到 9KB；
+  `tests/extract_dom.test.js` 的断言同步改为按 5 题与新字段校验。
+- **SKILL.md 重新定义为严格的 5 步闭环**（第 5 步为绝对终点）：
+  1. 接管浏览器 → 2. 抽取题目 → 3. **Agent 自主推理并生成 `answers.json`**
+  → 4. 逐题鼠标仿真作答与回读校验 → 5. 先暂时保存再提交（**任务终点，提交后严禁任何复盘**）。
+- **新增 `node scripts/answers_util.js init`**：按 `questions.json` 生成 `answers.json` 骨架
+  （客观题与填空题的槽位已列好），Agent 在此基础上逐题填入推理结果。
+- `run_all.js` 不再调用核分脚本；`submit_work.js` 提交完成后直接输出「任务完成」。
+- 删去"工具只代劳点鼠标、答案仍该人做"的说教段落，改为明确说明：
+  **题目解答推理与 `answers.json` 的生成，全部由调用本 Skill 的 Agent 自己在工作流中独立完成。**
+- `references/grading_rules.md` 改为只保留与课程无关的通用技术规律
+  （空白与括号归一化、同一空多答案点命中任一即对、平台空位数少于题干下划线时用 `、` 合并、
+  题干尖括号标签被服务端吞掉后的还原方法、客观题取值约定）。
+- `references/answer_format.md` 改为通用占位示例，并补充 `init` 骨架生成用法。
+- `examples/answers.example.json` 换成与课程无关的占位示例。
+- 单元测试从 11 个调整为 7 个纯函数用例 + 1 个合成夹具 DOM 用例。
+
 ## [1.1.0] — 2026-11-14
 
 修复与增强，主要来自一位真实用户在另一台电脑上跑完整流程后反馈的问题。

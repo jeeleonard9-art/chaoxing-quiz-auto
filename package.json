@@ -1,6 +1,6 @@
 {
   "name": "chaoxing-quiz-auto",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "学习通全自动答题 skills — 接管已登录浏览器自动完成超星学习通作业（Auto quiz answering skill for Chaoxing MOOC homework）",
   "keywords": [
     "chaoxing",
@@ -28,7 +28,6 @@
     "extract": "node scripts/extract_questions.js",
     "answer": "node scripts/answer_work.js",
     "submit": "node scripts/submit_work.js",
-    "check": "node scripts/check_result.js",
     "run": "node scripts/run_all.js"
   },
   "dependencies": {
