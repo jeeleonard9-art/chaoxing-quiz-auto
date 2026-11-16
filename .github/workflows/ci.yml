@@ -6,6 +6,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+# 强制 JavaScript actions 使用 Node 24，消除 Node 20 弃用警告注解
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   test:
     name: node ${{ matrix.node }} on ${{ matrix.os }}

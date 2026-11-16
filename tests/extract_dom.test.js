@@ -12,6 +12,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
+const { pathToFileURL } = require('node:url');
 
 const { extractQuestions, editorSpec } = require('../scripts/lib');
 
@@ -45,11 +46,10 @@ function findBrowser() {
 }
 
 // 把本地路径转成 file:// URL。
-// 注意：Windows 路径形如 C:\a\b → file:///C:/a/b（三个斜杠）；
-// 而 POSIX 路径已经以 / 开头，再拼 file:/// 会变成四个斜杠导致页面打不开。
+// 用 node:url 的 pathToFileURL 统一处理编码：目录含空格或中文时，
+// 手写拼接会因 URL 编码不一致导致路由拦截匹配失败。
 function toFileUrl(p) {
-  const norm = p.replace(/\\/g, '/');
-  return norm.startsWith('/') ? 'file://' + norm : 'file:///' + norm;
+  return pathToFileURL(p).href;
 }
 
 test('从合成夹具中抽取全部题目结构', async (t) => {
